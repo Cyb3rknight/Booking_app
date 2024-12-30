@@ -1,11 +1,11 @@
 package main
 
-//bufio package is used to read the full name, which handles spaces correctly, and removes the newline character from the end of the input.
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -49,7 +49,7 @@ func main() {
 	// Read the full name including spaces
 	reader := bufio.NewReader(os.Stdin)
 	userName, _ = reader.ReadString('\n')
-	userName = userName[:len(userName)-1] // Remove the newline character
+	userName = strings.TrimSpace(userName) // Remove the newline character
 
 	// Prompt the user to enter the number of tickets they want to purchase
 	var userTickets int
@@ -77,20 +77,47 @@ func main() {
 	remainingTickets -= userTickets
 	fmt.Printf("Tickets remaining: %d\n", remainingTickets)
 
-	// Save the updated number of remaining tickets to the file
-	file, err = os.OpenFile("name_userTickets.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Println("Error saving name and user tickets:", err)
+	// Read the existing user tickets file
+	file, err = os.Open("name_userTickets.txt")
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Println("Error reading user tickets file:", err)
 		return
 	}
 	defer file.Close()
 
-	if userTickets == 1 {
-		file.WriteString(userName + ": " + strconv.Itoa(userTickets) + " ticket\n")
-	} else if userTickets > 1 {
-		file.WriteString(userName + ": " + strconv.Itoa(userTickets) + " tickets\n")
+	var lines []string
+	userExists := false
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, userName+":") {
+			// Update the user's ticket count
+			parts := strings.Split(line, ": ")
+			existingTickets, _ := strconv.Atoi(strings.Split(parts[1], " ")[0])
+			newTickets := existingTickets + userTickets
+			line = fmt.Sprintf("%s: %d tickets", userName, newTickets)
+			userExists = true
+		}
+		lines = append(lines, line)
 	}
 
+	if !userExists {
+		lines = append(lines, fmt.Sprintf("%s: %d tickets", userName, userTickets))
+	}
+
+	// Save the updated user tickets to the file
+	file, err = os.Create("name_userTickets.txt")
+	if err != nil {
+		fmt.Println("Error saving user tickets:", err)
+		return
+	}
+	defer file.Close()
+
+	for _, line := range lines {
+		file.WriteString(line + "\n")
+	}
+
+	// Save the updated number of remaining tickets to the file
 	file, err = os.Create("remaining_tickets.txt")
 	if err != nil {
 		fmt.Println("Error saving remaining tickets:", err)
