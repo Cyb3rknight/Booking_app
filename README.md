@@ -2,6 +2,12 @@
 
 This is a simple Go application for booking tickets to the GopherCon 2021 conference. The application keeps track of the remaining tickets and allows users to purchase tickets. The remaining tickets are saved to a file so that it persist across application runs.
 
+## First step
+- Install an IDE to start writing your code (I'm using VS code)
+https://code.visualstudio.com/download
+- Install GO 
+https://go.dev/doc/install
+
 ## Features
 
 - Displays the conference name, ticket price, and remaining tickets.
