@@ -6,9 +6,17 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
 )
 
 func main() {
+	// Create a new Fyne application
+	myApp := app.New()
+	myWindow := myApp.NewWindow("Conference Ticket Booking")
 
 	// Define the conference name and total number of tickets
 	var conferenceName string = "GopherCon 2021"
@@ -32,53 +40,66 @@ func main() {
 	// Define the ticket price
 	var ticketPrice float64 = 100.50
 
-	// Print welcome messages and ticket information
-	fmt.Println("Welcome to our", conferenceName, "conference booking application")
-	fmt.Printf("We have %v tickets available for sale\n", remainingTickets)
-	fmt.Println("Get your tickets here to attend the conference\n")
-	fmt.Println("Ticket Price: ", ticketPrice, "\n")
-	fmt.Println("Tickets remaining: ", remainingTickets, "\n")
+	// Create UI elements
+	welcomeLabel := widget.NewLabel(fmt.Sprintf("Welcome to our %s conference booking application", conferenceName))
+	ticketsLabel := widget.NewLabel(fmt.Sprintf("We have %v tickets available for sale", remainingTickets))
+	priceLabel := widget.NewLabel(fmt.Sprintf("Ticket Price: %.2f$", ticketPrice))
 
-	// Check if there are no remaining tickets
-	if remainingTickets == 0 {
-		fmt.Println("Sorry, all tickets are sold out!")
-		return
-	}
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("Enter your full name")
 
-	fmt.Print("Enter your full name: ")
-	// Read the full name including spaces
-	reader := bufio.NewReader(os.Stdin)
-	userName, _ = reader.ReadString('\n')
-	userName = strings.TrimSpace(userName) // Remove the newline character
+	ticketCountEntry := widget.NewEntry()
+	ticketCountEntry.SetPlaceHolder("Enter number of tickets")
 
-	// Prompt the user to enter the number of tickets they want to purchase
-	var userTickets int
-	fmt.Print("Enter the number of tickets you want to purchase: ")
+	// Button to handle ticket purchase
+	purchaseButton := widget.NewButton("Purchase Tickets", func() {
+		userName = nameEntry.Text
+		userTicketsStr := ticketCountEntry.Text
+		userTickets, err := strconv.Atoi(userTicketsStr)
 
-	// Read the user input and store it in the userTickets variable
-	// fmt.Scanln reads input from the standard input until a newline character is encountered
-	fmt.Scanln(&userTickets)
+		if err != nil || userTickets <= 0 {
+			dialog.ShowInformation("Invalid Input", "Please enter a valid number of tickets.", myWindow)
+			return
+		}
 
-	// Check if the user entered a valid number
-	if userTickets <= 0 {
-		fmt.Println("Please enter a valid number of tickets.")
-		return
-	}
+		if userTickets > remainingTickets {
+			dialog.ShowInformation("Tickets Unavailable", fmt.Sprintf("Sorry, we only have %d tickets remaining.", remainingTickets), myWindow)
+			return
+		}
 
-	// Check if the requested number of tickets is available
-	if userTickets > remainingTickets {
-		fmt.Printf("Sorry, we only have %d tickets remaining.\n", remainingTickets)
-		return
-	}
+		// Update and display the remaining tickets
+		totalPrice := ticketPrice * float64(userTickets)
+		remainingTickets -= userTickets
 
-	// Update and display the remaining tickets
-	totalPrice := ticketPrice * float64(userTickets)
-	fmt.Printf("%s have successfully purchased %d tickets.\nPrice: %.2f$\n", userName, userTickets, totalPrice)
-	remainingTickets -= userTickets
-	fmt.Printf("Tickets remaining: %d\n", remainingTickets)
+		// Show success message
+		dialog.ShowInformation("Purchase Successful", fmt.Sprintf("%s has successfully purchased %d tickets.\nPrice: %.2f$\nTickets remaining: %d", userName, userTickets, totalPrice, remainingTickets), myWindow)
 
+		// Update user tickets file
+		updateUserTickets(userName, userTickets)
+		// Update remaining tickets file
+		updateRemainingTickets(remainingTickets)
+
+		// Update UI labels
+		ticketsLabel.SetText(fmt.Sprintf("We have %v tickets available for sale", remainingTickets))
+	})
+
+	// Layout the UI
+	content := container.NewVBox(
+		welcomeLabel,
+		ticketsLabel,
+		priceLabel,
+		nameEntry,
+		ticketCountEntry,
+		purchaseButton,
+	)
+
+	myWindow.SetContent(content)
+	myWindow.ShowAndRun()
+}
+
+func updateUserTickets(userName string, userTickets int) {
 	// Read the existing user tickets file
-	file, err = os.Open("name_userTickets.txt")
+	file, err := os.Open("name_userTickets.txt")
 	if err != nil && !os.IsNotExist(err) {
 		fmt.Println("Error reading user tickets file:", err)
 		return
@@ -116,9 +137,11 @@ func main() {
 	for _, line := range lines {
 		file.WriteString(line + "\n")
 	}
+}
 
+func updateRemainingTickets(remainingTickets int) {
 	// Save the updated number of remaining tickets to the file
-	file, err = os.Create("remaining_tickets.txt")
+	file, err := os.Create("remaining_tickets.txt")
 	if err != nil {
 		fmt.Println("Error saving remaining tickets:", err)
 		return
