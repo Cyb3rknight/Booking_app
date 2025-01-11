@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"image/color"
 	"os"
 	"strconv"
 	"strings"
@@ -11,12 +12,26 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
+
+// CustomTheme defines a custom theme with black text color
+type CustomTheme struct {
+	fyne.Theme
+}
+
+func (c CustomTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	if name == theme.ColorNameForeground {
+		return color.Gray{Y: 128} // Grey color
+	}
+	return c.Theme.Color(name, variant)
+}
 
 func main() {
 	// Create a new Fyne application
 	myApp := app.New()
+	myApp.Settings().SetTheme(&CustomTheme{theme.DefaultTheme()})
 	myWindow := myApp.NewWindow("Conference Ticket Booking")
 
 	// Define the conference name and total number of tickets
@@ -62,10 +77,7 @@ func main() {
 		welcomeLabel := widget.NewLabel(fmt.Sprintf("Welcome %s to our %s conference booking application", userName, conferenceName))
 		ticketsLabel := widget.NewLabel(fmt.Sprintf("You have %d tickets", userTickets))
 		priceLabel := widget.NewLabel(fmt.Sprintf("Ticket Price: %.2f$", ticketPrice))
-
-		nameEntry := widget.NewEntry()
-		nameEntry.SetText(userName)
-		nameEntry.Disable()
+		remTickets := widget.NewLabel(fmt.Sprintf("Tickets remaining: %d", remainingTickets))
 
 		ticketCountEntry := widget.NewEntry()
 		ticketCountEntry.SetPlaceHolder("Enter number of tickets")
@@ -100,6 +112,7 @@ func main() {
 
 			// Update UI labels
 			ticketsLabel.SetText(fmt.Sprintf("You have %d tickets", userTickets))
+			remTickets.SetText(fmt.Sprintf("Tickets remaining: %d", remainingTickets))
 		})
 
 		// Button to handle logout
@@ -112,7 +125,7 @@ func main() {
 			welcomeLabel,
 			ticketsLabel,
 			priceLabel,
-			nameEntry,
+			remTickets,
 			ticketCountEntry,
 			purchaseButton,
 			logoutButton,
