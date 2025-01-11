@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -22,10 +23,9 @@ func main() {
 	var conferenceName string = "GopherCon 2021"
 	const conferenceTickets int = 50
 	var remainingTickets int
-	var userName string
 
 	// Read the remaining tickets from the file
-	file, err := os.Open("remaining_tickets.txt")
+	file, err := os.Open("BOOKING_APP/remaining_tickets.txt")
 	if err != nil {
 		// If the file does not exist, set remaining tickets to the total number of tickets
 		remainingTickets = conferenceTickets
@@ -40,66 +40,161 @@ func main() {
 	// Define the ticket price
 	var ticketPrice float64 = 100.50
 
-	// Create UI elements
-	welcomeLabel := widget.NewLabel(fmt.Sprintf("Welcome to our %s conference booking application", conferenceName))
-	ticketsLabel := widget.NewLabel(fmt.Sprintf("We have %v tickets available for sale", remainingTickets))
-	priceLabel := widget.NewLabel(fmt.Sprintf("Ticket Price: %.2f$", ticketPrice))
+	// Create UI elements for login
+	emailEntry := widget.NewEntry()
+	emailEntry.SetPlaceHolder("Enter your email address")
 
-	nameEntry := widget.NewEntry()
-	nameEntry.SetPlaceHolder("Enter your full name")
+	usernameEntry := widget.NewEntry()
+	usernameEntry.SetPlaceHolder("Enter your username")
 
-	ticketCountEntry := widget.NewEntry()
-	ticketCountEntry.SetPlaceHolder("Enter number of tickets")
+	var loginContent, registerContent *fyne.Container
 
-	// Button to handle ticket purchase
-	purchaseButton := widget.NewButton("Purchase Tickets", func() {
-		userName = nameEntry.Text
-		userTicketsStr := ticketCountEntry.Text
-		userTickets, err := strconv.Atoi(userTicketsStr)
+	loginButton := widget.NewButton("Login", func() {
+		email := emailEntry.Text
+		userName, userTickets := getUserTickets(email)
 
-		if err != nil || userTickets <= 0 {
-			dialog.ShowInformation("Invalid Input", "Please enter a valid number of tickets.", myWindow)
+		if userName == "" {
+			dialog.ShowInformation("User Not Found", "No user found with this email address. Please register first.", myWindow)
 			return
 		}
 
-		if userTickets > remainingTickets {
-			dialog.ShowInformation("Tickets Unavailable", fmt.Sprintf("Sorry, we only have %d tickets remaining.", remainingTickets), myWindow)
-			return
-		}
+		// Create UI elements for ticket booking
+		welcomeLabel := widget.NewLabel(fmt.Sprintf("Welcome %s to our %s conference booking application", userName, conferenceName))
+		ticketsLabel := widget.NewLabel(fmt.Sprintf("You have %d tickets", userTickets))
+		priceLabel := widget.NewLabel(fmt.Sprintf("Ticket Price: %.2f$", ticketPrice))
 
-		// Update and display the remaining tickets
-		totalPrice := ticketPrice * float64(userTickets)
-		remainingTickets -= userTickets
+		nameEntry := widget.NewEntry()
+		nameEntry.SetText(userName)
+		nameEntry.Disable()
 
-		// Show success message
-		dialog.ShowInformation("Purchase Successful", fmt.Sprintf("%s has successfully purchased %d tickets.\nPrice: %.2f$\nTickets remaining: %d", userName, userTickets, totalPrice, remainingTickets), myWindow)
+		ticketCountEntry := widget.NewEntry()
+		ticketCountEntry.SetPlaceHolder("Enter number of tickets")
 
-		// Update user tickets file
-		updateUserTickets(userName, userTickets)
-		// Update remaining tickets file
-		updateRemainingTickets(remainingTickets)
+		// Button to handle ticket purchase
+		purchaseButton := widget.NewButton("Purchase Tickets", func() {
+			userTicketsStr := ticketCountEntry.Text
+			newTickets, err := strconv.Atoi(userTicketsStr)
 
-		// Update UI labels
-		ticketsLabel.SetText(fmt.Sprintf("We have %v tickets available for sale", remainingTickets))
+			if err != nil || newTickets <= 0 {
+				dialog.ShowInformation("Invalid Input", "Please enter a valid number of tickets.", myWindow)
+				return
+			}
+
+			if newTickets > remainingTickets {
+				dialog.ShowInformation("Tickets Unavailable", fmt.Sprintf("Sorry, we only have %d tickets remaining.", remainingTickets), myWindow)
+				return
+			}
+
+			// Update and display the remaining tickets
+			totalPrice := ticketPrice * float64(newTickets)
+			remainingTickets -= newTickets
+			userTickets += newTickets
+
+			// Show success message
+			dialog.ShowInformation("Purchase Successful", fmt.Sprintf("%s has successfully purchased %d tickets.\nPrice: %.2f$\nTickets remaining: %d", userName, newTickets, totalPrice, remainingTickets), myWindow)
+
+			// Update user tickets file
+			updateUserTickets(userName, email, userTickets)
+			// Update remaining tickets file
+			updateRemainingTickets(remainingTickets)
+
+			// Update UI labels
+			ticketsLabel.SetText(fmt.Sprintf("You have %d tickets", userTickets))
+		})
+
+		// Button to handle logout
+		logoutButton := widget.NewButton("Logout", func() {
+			myWindow.SetContent(loginContent)
+		})
+
+		// Layout the UI for ticket booking
+		content := container.NewVBox(
+			welcomeLabel,
+			ticketsLabel,
+			priceLabel,
+			nameEntry,
+			ticketCountEntry,
+			purchaseButton,
+			logoutButton,
+		)
+
+		myWindow.SetContent(content)
 	})
 
-	// Layout the UI
-	content := container.NewVBox(
-		welcomeLabel,
-		ticketsLabel,
-		priceLabel,
-		nameEntry,
-		ticketCountEntry,
-		purchaseButton,
+	registerButton := widget.NewButton("Register", func() {
+		username := usernameEntry.Text
+		email := emailEntry.Text
+
+		if username == "" || email == "" {
+			dialog.ShowInformation("Invalid Input", "Please enter both username and email address.", myWindow)
+			return
+		}
+
+		// Check if the user already exists
+		existingUserName, _ := getUserTickets(email)
+		if existingUserName != "" {
+			dialog.ShowInformation("User Exists", "A user with this email address already exists. Please log in.", myWindow)
+			return
+		}
+
+		// Create a new user entry
+		updateUserTickets(username, email, 0)
+		dialog.ShowInformation("Registration Successful", "You have successfully registered. Please log in.", myWindow)
+		myWindow.SetContent(loginContent)
+	})
+
+	// Layout the UI for login and registration options
+	loginContent = container.NewVBox(
+		widget.NewLabel("Conference Ticket Booking"),
+		emailEntry,
+		container.NewHBox(
+			loginButton,
+			widget.NewButton("Register", func() {
+				myWindow.SetContent(registerContent)
+			}),
+		),
 	)
 
-	myWindow.SetContent(content)
+	registerContent = container.NewVBox(
+		widget.NewLabel("Register New Account"),
+		usernameEntry,
+		emailEntry,
+		registerButton,
+		widget.NewButton("Back to Login", func() {
+			myWindow.SetContent(loginContent)
+		}),
+	)
+
+	myWindow.SetContent(loginContent)
 	myWindow.ShowAndRun()
 }
 
-func updateUserTickets(userName string, userTickets int) {
+func getUserTickets(email string) (string, int) {
 	// Read the existing user tickets file
-	file, err := os.Open("name_userTickets.txt")
+	file, err := os.Open("BOOKING_APP/name_userTickets.txt")
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Println("Error reading user tickets file:", err)
+		return "", 0
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, ": ")
+		if len(parts) == 3 && parts[1] == email {
+			userName := parts[0]
+			userTickets, _ := strconv.Atoi(strings.Split(parts[2], " ")[0])
+			return userName, userTickets
+		}
+	}
+
+	return "", 0
+}
+
+func updateUserTickets(userName, email string, userTickets int) {
+	// Read the existing user tickets file
+	file, err := os.Open("BOOKING_APP/name_userTickets.txt")
 	if err != nil && !os.IsNotExist(err) {
 		fmt.Println("Error reading user tickets file:", err)
 		return
@@ -111,23 +206,20 @@ func updateUserTickets(userName string, userTickets int) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, userName+":") {
-			// Update the user's ticket count
-			parts := strings.Split(line, ": ")
-			existingTickets, _ := strconv.Atoi(strings.Split(parts[1], " ")[0])
-			newTickets := existingTickets + userTickets
-			line = fmt.Sprintf("%s: %d tickets", userName, newTickets)
+		parts := strings.Split(line, ": ")
+		if len(parts) == 3 && parts[1] == email {
+			line = fmt.Sprintf("%s: %s: %d tickets", userName, email, userTickets)
 			userExists = true
 		}
 		lines = append(lines, line)
 	}
 
 	if !userExists {
-		lines = append(lines, fmt.Sprintf("%s: %d tickets", userName, userTickets))
+		lines = append(lines, fmt.Sprintf("%s: %s: %d tickets", userName, email, userTickets))
 	}
 
 	// Save the updated user tickets to the file
-	file, err = os.Create("name_userTickets.txt")
+	file, err = os.Create("BOOKING_APP/name_userTickets.txt")
 	if err != nil {
 		fmt.Println("Error saving user tickets:", err)
 		return
@@ -141,7 +233,7 @@ func updateUserTickets(userName string, userTickets int) {
 
 func updateRemainingTickets(remainingTickets int) {
 	// Save the updated number of remaining tickets to the file
-	file, err := os.Create("remaining_tickets.txt")
+	file, err := os.Create("BOOKING_APP/remaining_tickets.txt")
 	if err != nil {
 		fmt.Println("Error saving remaining tickets:", err)
 		return
