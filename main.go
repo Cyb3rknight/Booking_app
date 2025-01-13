@@ -16,7 +16,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// CustomTheme defines a custom theme with black text color
+// CustomTheme defines a custom theme with grey text color
 type CustomTheme struct {
 	fyne.Theme
 }
@@ -78,9 +78,21 @@ func main() {
 		ticketsLabel := widget.NewLabel(fmt.Sprintf("You have %d tickets", userTickets))
 		priceLabel := widget.NewLabel(fmt.Sprintf("Ticket Price: %.2f$", ticketPrice))
 		remTickets := widget.NewLabel(fmt.Sprintf("Tickets remaining: %d", remainingTickets))
+		priceTickets := widget.NewLabel("Total Price: $0.00")
 
 		ticketCountEntry := widget.NewEntry()
 		ticketCountEntry.SetPlaceHolder("Enter number of tickets")
+
+		// Update the total price dynamically
+		ticketCountEntry.OnChanged = func(content string) {
+			newTickets, err := strconv.Atoi(content)
+			if err == nil && newTickets > 0 {
+				totalPrice := ticketPrice * float64(newTickets)
+				priceTickets.SetText(fmt.Sprintf("Total Price: %.2f$", totalPrice))
+			} else {
+				priceTickets.SetText("Total Price: $0.00")
+			}
+		}
 
 		// Button to handle ticket purchase
 		purchaseButton := widget.NewButton("Purchase Tickets", func() {
@@ -113,6 +125,8 @@ func main() {
 			// Update UI labels
 			ticketsLabel.SetText(fmt.Sprintf("You have %d tickets", userTickets))
 			remTickets.SetText(fmt.Sprintf("Tickets remaining: %d", remainingTickets))
+			priceTickets.SetText("Total Price: $0.00")
+			ticketCountEntry.SetText("")
 		})
 
 		// Button to handle logout
@@ -126,6 +140,7 @@ func main() {
 			ticketsLabel,
 			priceLabel,
 			remTickets,
+			priceTickets,
 			ticketCountEntry,
 			purchaseButton,
 			logoutButton,
